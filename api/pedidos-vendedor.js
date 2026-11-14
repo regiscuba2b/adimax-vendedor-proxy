@@ -151,6 +151,9 @@ export default async function handler(req, res) {
     const ordersData = await ordersRes.json();
     const edges = ordersData?.data?.orders?.edges || [];
 
+    console.log('Tag buscada:', vendedorTag);
+    console.log('Resposta bruta do Shopify para pedidos:', JSON.stringify(ordersData, null, 2));
+
     const formattedOrders = edges.map(({ node }) => {
       const totalItens = node.lineItems.edges.reduce((acc, { node: item }) => acc + item.quantity, 0);
       
