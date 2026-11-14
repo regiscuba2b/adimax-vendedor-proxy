@@ -85,6 +85,7 @@ export default async function handler(req, res) {
       return res.status(200).json({ orders: [], message: 'Cliente não possui metafield de vendedor.' });
     }
 
+    // Query corrigida com os campos válidos do LineItem
     const ordersQuery = `
       query getOrdersByTag($query: String!) {
         orders(first: 50, query: $query, sortKey: CREATED_AT, reverse: true) {
@@ -120,8 +121,10 @@ export default async function handler(req, res) {
                   node {
                     title
                     quantity
-                    originalTotalPrice {
-                      amount
+                    originalTotalSet {
+                      shopMoney {
+                        amount
+                      }
                     }
                     variant {
                       title
@@ -151,9 +154,6 @@ export default async function handler(req, res) {
     const ordersData = await ordersRes.json();
     const edges = ordersData?.data?.orders?.edges || [];
 
-    console.log('Tag buscada:', vendedorTag);
-    console.log('Resposta bruta do Shopify para pedidos:', JSON.stringify(ordersData, null, 2));
-
     const formattedOrders = edges.map(({ node }) => {
       const totalItens = node.lineItems.edges.reduce((acc, { node: item }) => acc + item.quantity, 0);
       
@@ -172,7 +172,7 @@ export default async function handler(req, res) {
           titulo: item.title,
           variante: item.variant?.title,
           quantidade: item.quantity,
-          preco: `R$ ${parseFloat(item.originalTotalPrice.amount).toFixed(2).replace('.', ',')}`
+          preco: `R$ ${parseFloat(item.originalTotalSet?.shopMoney?.amount || 0).toFixed(2).replace('.', ',')}`
         }))
       };
     });
