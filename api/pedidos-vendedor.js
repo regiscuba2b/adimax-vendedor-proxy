@@ -85,13 +85,11 @@ export default async function handler(req, res) {
       return res.status(200).json({ orders: [], message: 'Cliente não possui metafield de vendedor.' });
     }
 
-    // Query corrigida com os campos válidos do LineItem
     const ordersQuery = `
       query getOrdersByTag($query: String!) {
-        orders(first: 50, query: $query, sortKey: CREATED_AT, reverse: true) {
+        orders(first: 100, query: $query, sortKey: CREATED_AT, reverse: true) {
           edges {
             node {
-              id
               name
               email
               createdAt
@@ -154,19 +152,43 @@ export default async function handler(req, res) {
     const ordersData = await ordersRes.json();
     const edges = ordersData?.data?.orders?.edges || [];
 
+    // Funções tradutoras para o português
+    const traduzirFinanceiro = (status) => {
+      const map = {
+        'PAID': 'Pago',
+        'PENDING': 'Pendente',
+        'AUTHORIZED': 'Autorizado',
+        'REFUNDED': 'Reembolsado',
+        'VOIDED': 'Cancelado',
+        'PARTIALLY_PAID': 'Parcialmente Pago',
+        'PARTIALLY_REFUNDED': 'Parcialmente Reembolsado'
+      };
+      return map[status] || status;
+    };
+
+    const traduzirEnvio = (status) => {
+      const map = {
+        'FULFILLED': 'Enviado / Concluído',
+        'UNFULFILLED': 'Não Enviado',
+        'PARTIAL': 'Parcialmente Enviado',
+        'RESTOCKED': 'Reestoqueado'
+      };
+      return map[status] || status;
+    };
+
     const formattedOrders = edges.map(({ node }) => {
       const totalItens = node.lineItems.edges.reduce((acc, { node: item }) => acc + item.quantity, 0);
       
       return {
-        id: node.id,
         numero: node.name,
         email: node.email || node.customer?.email || 'N/A',
         nomeCliente: node.shippingAddress?.name || `${node.customer?.firstName || ''} ${node.customer?.lastName || ''}`.trim() || 'Cliente',
         quantidadeProdutos: totalItens,
+        dataIso: node.createdAt, // Usado nos filtros por data
         data: new Date(node.createdAt).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }),
         total: `R$ ${parseFloat(node.totalPriceSet.shopMoney.amount).toFixed(2).replace('.', ',')}`,
-        statusPagamento: node.displayFinancialStatus,
-        statusEnvio: node.displayFulfillmentStatus,
+        statusPagamento: traduzirFinanceiro(node.displayFinancialStatus),
+        statusEnvio: traduzirEnvio(node.displayFulfillmentStatus),
         endereco: node.shippingAddress,
         itens: node.lineItems.edges.map(({ node: item }) => ({
           titulo: item.title,
